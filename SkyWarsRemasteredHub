@@ -1,0 +1,350 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+
+local Window = Library.CreateLib("NotGal!Skywars HUB", "DarkTheme")
+
+local Tab = Window:NewTab("Main")
+local Section = Tab:NewSection("Mines")
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+LocalPlayer.CharacterAdded:Connect(function(m)
+	character = m
+end)
+local replicatedStorage = game:GetService("ReplicatedStorage")
+
+_G.AuraMine = false -- Fix _G variable syntax
+_G.ThreeMine = false
+_G.FiveTimesMine = false
+_G.DelayMines = 0
+
+Section:NewToggle("Aura Mine", "Let you mine about 16 stud distance", function(state:boolean)
+	_G.AuraMine = state
+
+	if _G.AuraMine then
+		local toolName = "Axe" -- Tool name
+		local range = 15 -- Max distance to check for blocks
+		local toolActivatedConnection
+
+		-- Wait for the tool to be equipped
+		repeat
+			wait()
+		until character:FindFirstChild(toolName)
+
+		if _G.AuraMine == false then
+			return
+		end
+
+		print("Tool equipped:", toolName)
+		local tool = character:FindFirstChild(toolName)
+
+		-- Find the RemoteEvent using FindFirstChildOfClass
+		local fireEvent = tool:FindFirstChildOfClass("RemoteEvent")
+		if not fireEvent then
+			warn("No RemoteEvent found in the tool!")
+			return
+		end
+
+		-- Function to find all blocks within range
+		local function findBlocksInRange()
+			local blocksInRange = {}
+			local characterPosition = character:GetPrimaryPartCFrame().Position
+
+			-- Search the workspace for parts named "Block"
+			for _, descendant in ipairs(workspace:GetDescendants()) do
+				if descendant:IsA("BasePart") and descendant.Name == "Block" then
+					local distance = (descendant.Position - characterPosition).Magnitude
+					if distance <= range then
+						table.insert(blocksInRange, descendant)
+					end
+				end
+			end
+
+			return blocksInRange
+		end
+
+		-- Connect to the tool's Activated event
+		toolActivatedConnection = tool.Activated:Connect(function()
+			print("Tool activated!")
+			if tool.Parent == character then
+				local blocksInRange = findBlocksInRange()
+				for _, block in ipairs(blocksInRange) do
+					-- Fire the event for each block in range
+					fireEvent:FireServer(block)
+					if _G.DelayMines ~= 0 then
+						task.wait(_G.DelayMines)
+					end
+				end
+			else
+				warn("Tool is not in the player's character!")
+			end
+		end)
+
+		-- Wait until AuraMine is toggled off
+		repeat
+			wait()
+		until not _G.AuraMine
+
+		print("AuraMine deactivated")
+		if toolActivatedConnection then
+			toolActivatedConnection:Disconnect()
+			toolActivatedConnection = nil
+		end
+	end
+end)
+
+Section:NewToggle("3x3 Mine", "Let you mine every 3x3 block", function(state:boolean)
+	_G.ThreeMine = state
+
+	if _G.ThreeMine then
+		local toolName = "Axe" -- Tool name
+		local range = 6 -- Max distance to check for blocks
+		local toolActivatedConnection
+
+		-- Wait for the tool to be equipped
+		repeat
+			wait()
+		until character:FindFirstChild(toolName)
+		if _G.ThreeMine == false then
+			return
+		end
+
+		local tool:Tool = character:FindFirstChild(toolName)
+		local function findBlocksInRange(position)
+			local blocksInRange = {}
+
+			-- Search the workspace for parts named "Block"
+			for _, descendant in ipairs(workspace:GetDescendants()) do
+				if descendant:IsA("BasePart") and descendant.Name == "Block" then
+					local distance = (descendant.Position - position).Magnitude
+					if distance <= range then
+						table.insert(blocksInRange, descendant)
+					end
+				end
+			end
+
+			return blocksInRange
+		end
+
+		toolActivatedConnection = tool.Activated:Connect(function() 
+			local hit = LocalPlayer:GetMouse().Hit
+			local allblock = findBlocksInRange(hit.Position)
+			for _,block in ipairs(allblock) do
+				local remoteevent = tool:FindFirstChildOfClass("RemoteEvent")
+				if not remoteevent then
+					warn("No RemoteEvent found in the tool!")
+					return
+				end
+				remoteevent:FireServer(block)
+				if _G.DelayMines ~= 0 then
+					task.wait(_G.DelayMines)
+				end
+			end
+		end)
+
+		repeat
+			wait()
+		until not _G.ThreeMine
+		print("Finish")
+		if toolActivatedConnection then
+			toolActivatedConnection:Disconnect()
+			toolActivatedConnection = nil
+		end
+	end
+end)
+
+Section:NewToggle("Mine X5", "Let you mine 5 times, just like almost obsidian axe", function(state:boolean)
+	_G.FiveTimesMine = state
+
+	if _G.FiveTimesMine then
+		local toolName = "Axe" -- Tool name
+		local toolActivatedConnection
+
+		-- Wait for the tool to be equipped
+		repeat
+			wait()
+		until character:FindFirstChild(toolName)
+		if _G.FiveTimesMine == false then
+			return
+		end
+
+		local tool:Tool = character:FindFirstChild(toolName)
+
+		toolActivatedConnection = tool.Activated:Connect(function() 
+			local target = LocalPlayer:GetMouse().Target
+			for i = 1,5 do
+				if target ~= nil then
+					local remoteevent = tool:FindFirstChildOfClass("RemoteEvent")
+					if not remoteevent then
+						warn("No RemoteEvent found in the tool!")
+						return
+					end
+					remoteevent:FireServer(target)
+				end
+				if _G.DelayMines ~= 0 then
+					task.wait(_G.DelayMines)
+				end
+			end
+		end)
+
+		repeat
+			wait()
+		until not _G.FiveTimesMine
+		print("Finish")
+		if toolActivatedConnection then
+			toolActivatedConnection:Disconnect()
+			toolActivatedConnection = nil
+		end
+	end
+end)
+
+Section:NewToggle("Enable Delay", "Let you make working mine for milisecond", function(state:boolean)
+	if state then
+		_G.DelayMines = .1
+	else
+		_G.DelayMines = 0
+	end
+end)
+
+Section:NewSlider("Delay Second","Change delay",500,0.01,function(number:number)
+	if _G.DelayMines ~= 0 then
+		_G.DelayMines = number/100
+	end
+end)
+
+local Tab = Window:NewTab("Visuals")
+local Section = Tab:NewSection("ESP")
+
+_G.EspPlayer = false
+_G.EspOre = false
+
+local function playeresp(player:Player,bool:BoolValue)
+	local character = player.Character
+	local root:BasePart = character:WaitForChild("HumanoidRootPart")
+	local humanoid:Humanoid = character:WaitForChild("Humanoid")
+	local haveheal = false
+	local billboardgui = Instance.new("BillboardGui", character)
+	billboardgui.Name = "ESP"
+	billboardgui.Size = UDim2.new(0, 200, 0, 50)
+	billboardgui.StudsOffset = Vector3.new(0, 3, 0)
+	billboardgui.Adornee = character
+	billboardgui.AlwaysOnTop = true
+	local text = Instance.new("TextLabel", billboardgui)
+	text.Size = UDim2.new(1, 0, 1, 0)
+	text.BackgroundTransparency = 1
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeTransparency = 0
+	text.TextStrokeColor3 = Color3.new(0, 0, 0)
+	text.TextScaled = true
+	local highlight = Instance.new("Highlight",player.Character)
+	highlight.Name = "ESPHIGHLIGHT"
+	highlight.OutlineColor = Color3.new(1, 1, 1)
+	highlight.FillTransparency = 1
+	highlight.OutlineTransparency = 0
+	highlight.FillColor = Color3.new(0.564706, 0.992157, 1)
+	if bool.Value == false then
+		billboardgui.Enabled = false
+	else
+		billboardgui.Enabled = true
+	end
+	highlight.Enabled = billboardgui.Enabled
+	bool.Changed:Connect(function(value: boolean) 
+		if value == false then
+			billboardgui.Enabled = false
+		else
+			billboardgui.Enabled = true
+		end
+		highlight.Enabled = billboardgui.Enabled
+	end)
+	if player.Backpack:FindFirstChild("Heal") ~= nil then
+		haveheal = true
+	end
+	player.Backpack.ChildAdded:Connect(function(child: Instance) 
+		if child.Name == "Heal" then
+			haveheal = true
+			text.Text = player.DisplayName.. " (@".. player.Name..") | ".. tostring(player.Character:FindFirstChild("Humanoid").Health).. " | Have Heal:".. tostring(haveheal and "On" or "Off")
+		end
+	end)
+	player.Backpack.ChildRemoved:Connect(function(child: Instance) 
+		if child.Name == "Heal" then
+			haveheal = false
+			text.Text = player.DisplayName.. " (@".. player.Name..") | ".. tostring(player.Character:FindFirstChild("Humanoid").Health).. " | Have Heal:".. tostring(haveheal and "On" or "Off")
+		end
+	end)
+	text.Text = player.DisplayName.. " (@".. player.Name..") | ".. tostring(player.Character:FindFirstChild("Humanoid").Health).. " | Have Heal:".. tostring(haveheal and "On" or "Off")
+	humanoid.HealthChanged:Connect(function()
+		text.Text = player.DisplayName.. " (@".. player.Name..") | ".. tostring(player.Character:FindFirstChild("Humanoid").Health).. " | Have Heal:".. tostring(haveheal and "On" or "Off")
+	end)
+end
+
+local function playeraddesp(player:Player)
+	local character = player.Character
+	local b = Instance.new("BoolValue",player)
+	b.Name = "IsEsp"
+	b.Value = _G.EspPlayer
+	player.CharacterAdded:Connect(function(character: Model)
+		playeresp(player,b)
+	end)
+	if character then
+		playeresp(player,b)
+	end
+end
+
+Players.PlayerAdded:Connect(playeraddesp)
+for i,v in pairs(Players:GetPlayers()) do
+	spawn(function() 
+		playeraddesp(v)
+	end)
+end
+
+Section:NewToggle("Player ESP", "Let you see all player throught object", function(state:boolean)
+	_G.EspPlayer = state
+	for i,v in pairs(Players:GetPlayers()) do
+		spawn(function() 
+			local isesp = v:FindFirstChild("IsEsp")
+			if isesp ~= nil then
+				isesp.Value = _G.EspPlayer
+			end
+		end)
+	end
+end)
+
+Section:NewToggle("Ore ESP", "Let you see all ore throught island", function(state:boolean)
+	_G.EspOre = state
+	for _,block in pairs(workspace:GetDescendants()) do
+		if block:IsA("BasePart") and block.Name == "Block" then
+			if block.Parent.Name == "Ores" then
+				local billboardgui:BillboardGui = block:FindFirstChild("ESP")
+				if billboardgui == nil then
+					local billboardgui = Instance.new("BillboardGui",block)
+					billboardgui.Name = "ESP"
+					billboardgui.Size = UDim2.new(0,200,0,50)
+					billboardgui.StudsOffset = Vector3.new(0,4,0)
+					billboardgui.Adornee = block
+					local text = Instance.new("TextLabel",billboardgui)
+					text.Name = "Text"
+					text.Size = UDim2.new(1,0,1,0)
+					text.BackgroundTransparency = 1
+					text.TextStrokeTransparency = 1
+					text.TextColor3 = block.Color
+				end
+				local highlight:Highlight = block:FindFirstChild("ESPHIGHLIGHT")
+				if highlight == nil then
+					local highlight = Instance.new("Highlight",block)
+					highlight.Name = "ESPHIGHLIGHT"
+					highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+					highlight.FillTransparency = 0.7
+					highlight.FillColor = block.Color
+				end
+				billboardgui.Enabled = _G.EspOre
+				highlight.Enabled = _G.EspOre
+			end
+		end
+	end
+end)
+
+local Tab = Window:NewTab("Setting")
+local Section = Tab:NewSection("Setting")
+Section:NewKeybind("KeybindText", "KeybindInfo", Enum.KeyCode.RightControl, function()
+	Library:ToggleUI()
+end)
