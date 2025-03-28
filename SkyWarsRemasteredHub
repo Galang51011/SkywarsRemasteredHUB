@@ -1,214 +1,216 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 
-local Window = Library.CreateLib("NotGal!Skywars HUB", "DarkTheme")
-
-local Tab = Window:NewTab("Main")
-local Section = Tab:NewSection("Mines")
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local replicatedStorage = game:GetService("ReplicatedStorage")
+
+local tools = {
+	sword = nil,
+	axe = nil,
+	bow = nil,
+	block = nil
+}
+local function onToolAdded(tool: Tool)
+	print(tool.Name)
+	if tool:IsA("Tool") then
+		local toolName = tool.Name:lower()
+		print(toolName,tools[toolName])
+		if tools[toolName] == nil then -- Ensure we don't overwrite if the tool is already assigned
+			tools[toolName] = tool -- Update the tool reference
+			tool.Destroying:Connect(function()
+				tools[toolName] = nil -- Remove the tool reference when it's destroyed
+			end)
+			tool.Activated:Connect(function() 
+				if toolName == "axe" then
+					if _G.AuraMine == true then
+						local range = 13 -- Max distance
+						local toolActivatedConnection
+						local fireEvent = tools.axe:FindFirstChildOfClass("RemoteEvent")
+						if not fireEvent then
+							warn("No RemoteEvent found in the tool!")
+							return
+						end
+
+						local function findBlocksInRange()
+							local blocksInRange = {}
+							local characterPosition = character:GetPrimaryPartCFrame().Position
+
+							for _, descendant in ipairs(workspace:GetDescendants()) do
+								if descendant:IsA("BasePart") and descendant.Name == "Block" then
+									local distance = (descendant.Position - characterPosition).Magnitude
+									if distance <= range then
+										table.insert(blocksInRange, descendant)
+									end
+								end
+							end
+							return blocksInRange
+						end
+							print("Tool activated!")
+							
+						repeat wait(.1) 
+							if tools.axe.Parent == character then
+								local blocksInRange = findBlocksInRange()
+								for _, block in ipairs(blocksInRange) do
+									fireEvent:FireServer(block)
+									task.wait(_G.DelayMines) -- Ensures delay is applied
+								end
+							else
+								warn("Tool is not in the player's character!")
+							end
+						until not _G.AuraMine
+					end
+					if _G.ThreeMine == true then
+						local range = 6 -- Max distance
+						local toolActivatedConnection
+
+						repeat wait() until tools.axe ~= nil
+						if not _G.ThreeMine then return end
+
+						local tool = tools.axe
+
+						local function findBlocksInRange(position)
+							local blocksInRange = {}
+							for _, descendant in ipairs(workspace:GetDescendants()) do
+								if descendant:IsA("BasePart") and descendant.Name == "Block" then
+									local distance = (descendant.Position - position).Magnitude
+									if distance <= range then
+										table.insert(blocksInRange, descendant)
+									end
+								end
+							end
+							return blocksInRange
+						end
+
+							local hit = LocalPlayer:GetMouse().Hit
+							local allblock = findBlocksInRange(hit.Position)
+							for _, block in ipairs(allblock) do
+								local remoteevent = tool:FindFirstChildOfClass("RemoteEvent")
+								if not remoteevent then
+									warn("No RemoteEvent found in the tool!")
+									return
+								end
+								remoteevent:FireServer(block)
+								task.wait(_G.DelayMines) -- Ensures delay is applied
+							end
+
+						
+					end
+				end
+			end)
+		end
+	end
+end
+
+
+character.ChildAdded:Connect(onToolAdded)
 LocalPlayer.CharacterAdded:Connect(function(m)
 	character = m
+	character.ChildAdded:Connect(onToolAdded)
 end)
-local replicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Detect tools added/removed from Character
+
+-- Check existing tools in Backpack
+for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+	onToolAdded(tool)
+end
+
+
+local Window = Library.CreateLib("NotGal!Skywars HUB", "DarkTheme")
+
+local Tab = Window:NewTab("Tools")
+local Section = Tab:NewSection("Pickaxe")
 
 _G.AuraMine = false -- Fix _G variable syntax
 _G.ThreeMine = false
 _G.FiveTimesMine = false
 _G.DelayMines = 0
 
-Section:NewToggle("Aura Mine", "Let you mine about 16 stud distance", function(state:boolean)
+Section:NewToggle("Huge Mine", "Let you mine about 16 stud distance", function(state)
 	_G.AuraMine = state
+end)
 
-	if _G.AuraMine then
-		local toolName = "Axe" -- Tool name
-		local range = 15 -- Max distance to check for blocks
-		local toolActivatedConnection
+Section:NewToggle("3x3 Mine", "Let you mine every 3x3 block", function(state)
+	_G.ThreeMine = state
+end)
 
-		-- Wait for the tool to be equipped
-		repeat
-			wait()
-		until character:FindFirstChild(toolName)
 
-		if _G.AuraMine == false then
-			return
-		end
 
-		print("Tool equipped:", toolName)
-		local tool = character:FindFirstChild(toolName)
+Section:NewSlider("Delay Mine", "Adjust delay (ms)", 500, 0.01, function(number)
+	_G.DelayMines = number / 100 -- Convert to seconds
+end)
 
-		-- Find the RemoteEvent using FindFirstChildOfClass
-		local fireEvent = tool:FindFirstChildOfClass("RemoteEvent")
-		if not fireEvent then
-			warn("No RemoteEvent found in the tool!")
-			return
-		end
+local Section = Tab:NewSection("Block")
 
-		-- Function to find all blocks within range
-		local function findBlocksInRange()
-			local blocksInRange = {}
-			local characterPosition = character:GetPrimaryPartCFrame().Position
+_G.AutoBridge = false
 
-			-- Search the workspace for parts named "Block"
-			for _, descendant in ipairs(workspace:GetDescendants()) do
-				if descendant:IsA("BasePart") and descendant.Name == "Block" then
-					local distance = (descendant.Position - characterPosition).Magnitude
-					if distance <= range then
-						table.insert(blocksInRange, descendant)
-					end
-				end
-			end
+Section:NewToggle("Auto Bridge","Let you bridge automatic",function(state)
+	_G.AutoBridge = state
 
-			return blocksInRange
-		end
-
-		-- Connect to the tool's Activated event
-		toolActivatedConnection = tool.Activated:Connect(function()
-			print("Tool activated!")
-			if tool.Parent == character then
-				local blocksInRange = findBlocksInRange()
-				for _, block in ipairs(blocksInRange) do
-					-- Fire the event for each block in range
-					fireEvent:FireServer(block)
-					if _G.DelayMines ~= 0 then
-						task.wait(_G.DelayMines)
-					end
+	if _G.AutoBridge then
+		local remoteFunction:RemoteFunction = tools.block:FindFirstChildOfClass("RemoteFunction")
+		local blocksize = Vector3.new(4,4,4)
+		local directions = {
+			Front = Vector3.new(0, 0, -blocksize.Z),
+			Back = Vector3.new(0, 0, blocksize.Z),
+			Left = Vector3.new(-blocksize.X, 0, 0),
+			Right = Vector3.new(blocksize.X, 0, 0),
+		}
+		local function getFacingDirection()
+			local lookVector = character:FindFirstChild("HumanoidRootPart").CFrame.LookVector
+			if math.abs(lookVector.X) > math.abs(lookVector.Z) then
+				if lookVector.X > 0 then
+					return "Right"
+				else
+					return "Left"
 				end
 			else
-				warn("Tool is not in the player's character!")
+				if lookVector.Z > 0 then
+					return "Back"
+				else
+					return "Front"
+				end
 			end
-		end)
-
-		-- Wait until AuraMine is toggled off
-		repeat
-			wait()
-		until not _G.AuraMine
-
-		print("AuraMine deactivated")
-		if toolActivatedConnection then
-			toolActivatedConnection:Disconnect()
-			toolActivatedConnection = nil
 		end
-	end
-end)
-
-Section:NewToggle("3x3 Mine", "Let you mine every 3x3 block", function(state:boolean)
-	_G.ThreeMine = state
-
-	if _G.ThreeMine then
-		local toolName = "Axe" -- Tool name
-		local range = 6 -- Max distance to check for blocks
-		local toolActivatedConnection
-
-		-- Wait for the tool to be equipped
-		repeat
-			wait()
-		until character:FindFirstChild(toolName)
-		if _G.ThreeMine == false then
-			return
+		local function placeBlock(position, normalId)
+			local args = {
+				[1] = position, -- Position where the block is placed
+				[2] = normalId, -- Surface direction (e.g., Front, Back, Left, Right)
+				[4] = BrickColor.new(345), -- Color of the block
+				[5] = true -- Confirmation to place the block
+			}
+			remoteFunction:InvokeServer(unpack(args))
 		end
+		local function blockExistsAtPosition(position)
+			local regionStart = position - (blocksize / 2) -- Start corner of the block's region
+			local regionEnd = position + (blocksize / 2) -- Opposite corner of the block's region
+			local region = Region3.new(regionStart, regionEnd)
+			local parts = workspace:FindPartsInRegion3WithWhiteList(region, {workspace}, math.huge)
 
-		local tool:Tool = character:FindFirstChild(toolName)
-		local function findBlocksInRange(position)
-			local blocksInRange = {}
-
-			-- Search the workspace for parts named "Block"
-			for _, descendant in ipairs(workspace:GetDescendants()) do
-				if descendant:IsA("BasePart") and descendant.Name == "Block" then
-					local distance = (descendant.Position - position).Magnitude
-					if distance <= range then
-						table.insert(blocksInRange, descendant)
-					end
+			for _, part in ipairs(parts) do
+				if part.Name == "Block" then -- Replace "Block" with the name of your block type
+					return true, part.Position
 				end
 			end
 
-			return blocksInRange
+			return false, nil
 		end
-
-		toolActivatedConnection = tool.Activated:Connect(function() 
-			local hit = LocalPlayer:GetMouse().Hit
-			local allblock = findBlocksInRange(hit.Position)
-			for _,block in ipairs(allblock) do
-				local remoteevent = tool:FindFirstChildOfClass("RemoteEvent")
-				if not remoteevent then
-					warn("No RemoteEvent found in the tool!")
-					return
-				end
-				remoteevent:FireServer(block)
-				if _G.DelayMines ~= 0 then
-					task.wait(_G.DelayMines)
+		local i = 0
+		while _G.AutoBridge do
+			if character then
+				local humanoid:Humanoid = character:FindFirstChild("Humanoid")
+				local root:BasePart = character:FindFirstChild("HumanoidRootPart")
+				if humanoid and root then
+					i += 1
+					local blockdetected, blockposition = blockExistsAtPosition(root.Position)
+					local direction = getFacingDirection()
+					local offset = directions[direction]
+					local nextposition = blockposition + (offset * (i - 1))
 				end
 			end
-		end)
-
-		repeat
-			wait()
-		until not _G.ThreeMine
-		print("Finish")
-		if toolActivatedConnection then
-			toolActivatedConnection:Disconnect()
-			toolActivatedConnection = nil
+			wait(.05)
 		end
-	end
-end)
-
-Section:NewToggle("Mine X5", "Let you mine 5 times, just like almost obsidian axe", function(state:boolean)
-	_G.FiveTimesMine = state
-
-	if _G.FiveTimesMine then
-		local toolName = "Axe" -- Tool name
-		local toolActivatedConnection
-
-		-- Wait for the tool to be equipped
-		repeat
-			wait()
-		until character:FindFirstChild(toolName)
-		if _G.FiveTimesMine == false then
-			return
-		end
-
-		local tool:Tool = character:FindFirstChild(toolName)
-
-		toolActivatedConnection = tool.Activated:Connect(function() 
-			local target = LocalPlayer:GetMouse().Target
-			for i = 1,5 do
-				if target ~= nil then
-					local remoteevent = tool:FindFirstChildOfClass("RemoteEvent")
-					if not remoteevent then
-						warn("No RemoteEvent found in the tool!")
-						return
-					end
-					remoteevent:FireServer(target)
-				end
-				if _G.DelayMines ~= 0 then
-					task.wait(_G.DelayMines)
-				end
-			end
-		end)
-
-		repeat
-			wait()
-		until not _G.FiveTimesMine
-		print("Finish")
-		if toolActivatedConnection then
-			toolActivatedConnection:Disconnect()
-			toolActivatedConnection = nil
-		end
-	end
-end)
-
-Section:NewToggle("Enable Delay", "Let you make working mine for milisecond", function(state:boolean)
-	if state then
-		_G.DelayMines = .1
-	else
-		_G.DelayMines = 0
-	end
-end)
-
-Section:NewSlider("Delay Second","Change delay",500,0.01,function(number:number)
-	if _G.DelayMines ~= 0 then
-		_G.DelayMines = number/100
 	end
 end)
 
@@ -309,42 +311,84 @@ Section:NewToggle("Player ESP", "Let you see all player throught object", functi
 	end
 end)
 
-Section:NewToggle("Ore ESP", "Let you see all ore throught island", function(state:boolean)
-	_G.EspOre = state
-	for _,block in pairs(workspace:GetDescendants()) do
-		if block:IsA("BasePart") and block.Name == "Block" then
-			if block.Parent.Name == "Ores" then
-				local billboardgui:BillboardGui = block:FindFirstChild("ESP")
-				if billboardgui == nil then
-					local billboardgui = Instance.new("BillboardGui",block)
-					billboardgui.Name = "ESP"
-					billboardgui.Size = UDim2.new(0,200,0,50)
-					billboardgui.StudsOffset = Vector3.new(0,4,0)
-					billboardgui.Adornee = block
-					local text = Instance.new("TextLabel",billboardgui)
-					text.Name = "Text"
-					text.Size = UDim2.new(1,0,1,0)
-					text.BackgroundTransparency = 1
-					text.TextStrokeTransparency = 1
-					text.TextColor3 = block.Color
-				end
-				local highlight:Highlight = block:FindFirstChild("ESPHIGHLIGHT")
-				if highlight == nil then
-					local highlight = Instance.new("Highlight",block)
-					highlight.Name = "ESPHIGHLIGHT"
-					highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-					highlight.FillTransparency = 0.7
-					highlight.FillColor = block.Color
-				end
-				billboardgui.Enabled = _G.EspOre
-				highlight.Enabled = _G.EspOre
-			end
+local function oreesp(part:BasePart)
+	if part:IsA("BasePart") and part.Parent.Name == "Ores" then
+		local billboardgui:BillboardGui = part:FindFirstChild("ESPGUI")
+		if billboardgui == nil then
+			billboardgui = Instance.new("BillboardGui",part)
+			billboardgui.Name = "ESPGUI"
+			billboardgui.Size = UDim2.new(1,100,1,25)
+			billboardgui.StudsOffset = Vector3.new(0,4,0)
+			billboardgui.Adornee = part
+			billboardgui.AlwaysOnTop = true
+		end
+		local text:TextLabel = billboardgui:FindFirstChild("TextLabel")
+		if text == nil then
+			text = Instance.new("TextLabel",billboardgui)
+			text.Name = "TextLabel"
+			text.Size = UDim2.new(1,0,1,0)
+			text.BackgroundTransparency = 1
+			text.TextColor3 = Color3.new(1, 1, 1)
+			text.TextStrokeTransparency = 0.5
+			text.TextScaled = true
+			text.TextColor3 = part.Color
+			text.TextTransparency = 0.5
+			text.Text = "Ore"
+		end
+		local highlight:Highlight = part:FindFirstChild("ESP")
+		if highlight == nil then
+			highlight = Instance.new("Highlight",part)
+			highlight.Name = "ESP"
+			highlight.OutlineTransparency = 0
+			highlight.FillTransparency = 0.6
+			highlight.FillColor = part.Color
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		end
+		highlight.FillColor = part.Color
+		text.Text = part.Name
+		while true do
+			billboardgui.Enabled = false
+			highlight.Enabled = false
+			repeat
+				wait()
+			until _G.EspOre == true
+			highlight.Enabled = true
+			billboardgui.Enabled = true
+			repeat
+				wait()
+			until _G.EspOre == false
 		end
 	end
+end
+
+spawn(function() 
+	workspace.DescendantAdded:Connect(function(descendant: Instance) 
+		oreesp(descendant)
+	end)
+
+	for _,descendant in pairs(workspace:GetDescendants()) do
+		oreesp(descendant)
+	end
+end)
+
+Section:NewToggle("Ore ESP", "Let you see all ore throught island", function(state:boolean)
+	_G.EspOre = state
 end)
 
 local Tab = Window:NewTab("Setting")
 local Section = Tab:NewSection("Setting")
 Section:NewKeybind("KeybindText", "KeybindInfo", Enum.KeyCode.RightControl, function()
 	Library:ToggleUI()
+end)
+
+local Tab = Window:NewTab("Debug")
+local Section = Tab:NewSection("Debug")
+
+Section:NewButton("Check Tool","",function()
+	print(
+		"Axe:".. tostring(tools.axe ~= nil and tools.axe.Name or nil)..
+			" Sword:".. tostring(tools.axe ~= nil and tools.sword.Name or nil)..
+			" Bow:".. tostring(tools.axe ~= nil and tools.bow.Name or nil)..
+			" Block".. tostring(tools.axe ~= nil and tools.block.Name or nil)
+	)
 end)
